@@ -1,0 +1,13 @@
+﻿Build started 19/10/2014 16:32:10.
+     1>Project "C:\Users\Reebhu\Documents\Visual Studio 2013\Projects\OCVTest\OCVTest\OCVTest.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /IE:\opencv /IE:\opencv\build\include\opencv /IE:\opencv\build\include /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt Header.cpp
+         Header.cpp
+     1>c:\users\reebhu\documents\visual studio 2013\projects\ocvtest\ocvtest\header.cpp(23): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\reebhu\documents\visual studio 2013\projects\ocvtest\ocvtest\header.cpp(32): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\reebhu\documents\visual studio 2013\projects\ocvtest\ocvtest\header.cpp(82): error C2065: 'res' : undeclared identifier
+     1>Done Building Project "C:\Users\Reebhu\Documents\Visual Studio 2013\Projects\OCVTest\OCVTest\OCVTest.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:01.03
