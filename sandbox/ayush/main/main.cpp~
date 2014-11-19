@@ -3,28 +3,36 @@
 #include <cv.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <stdlib.h>
 using namespace std;
 
 cv::Mat normalisedmat (int row,int col,int cond)
-{ cv::Mat S(row,col,CV_64F);
-  for (int i=0;i<col;i++)
-{
- float sum=0.0;
+{ cv::Mat S;
+switch (cond)
 
- for(int j=0;j<row;j++)
- {
- S.at<float>(j,i)=rand()%100;
- sum+=S.at<float>(j,i);
- }
+{
+case 0 : S=cv::Mat(row,col,CV_64F);
+         for (int i=0 ;i<row;i++)
+      {
+              for(int j=0;j<col;j++)
+           {
+              S.at<float>(i,j)=1.0/i;
+            }
+      }break;
+
+case 1 :  S=cv::Mat(row,col,CV_64F);
+         for (int i=0 ;i<row;i++)
+      {
+              for(int j=0;j<col;j++)
+           {
+              S.at<float>(i,j)=1.0/j;
+            }
+      }break;
+}
+	return S;
+}
  
- for(int j=0;j<row;j++)
- {
- S.at<float>(j,i)/=sum;
- }
-}
-return S;
-}
+
+
 int main(int argc,char**argv)
 {
 	//Step 1:Load features file
