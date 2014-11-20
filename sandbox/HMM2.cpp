@@ -299,26 +299,26 @@ public:
 	{
 		return obs;
 	}
-	NColVector* getObs(const int &i)
+	NColVector getObs(const int &i)
 	{
 		double* arr = new double[15];
 		for (int j = 0; j < 15; j++)
 		{
 			arr[j] = obs->at<double>(j, i);
 		}
-		NColVector *v = new NColVector(15, arr);
+		NColVector v(15, arr);
 		delete[] arr;
 		return v;
 	}
 
 };
-NRowVector& operator*(const NRowVector &v1, const Mat &op)
+NRowVector operator*(const NRowVector &v1, const Mat &op)
 {
 	if (op.rows != v1.getSize())
 		return NRowVector(v1.getSize());
 	int r = 1;
 	int c = op.cols;
-	NRowVector *prod = new NRowVector(c);
+	NRowVector prod(c);
 	double tmp;
 	for (int j = 0; j < c; j++)
 	{
@@ -327,9 +327,9 @@ NRowVector& operator*(const NRowVector &v1, const Mat &op)
 		{
 			tmp += v1.getElement(k)*op.at<double>(k, j);
 		}
-		prod->setElement(j, tmp);
+		prod.setElement(j, tmp);
 	}
-	return *prod;
+	return prod;
 
 }
 NColVector operator*(const NColVector &v1, const Mat &op)
@@ -352,13 +352,13 @@ NColVector operator*(const NColVector &v1, const Mat &op)
 	return prod;
 
 }
-Mat& operator*(const NColVector &v1, const NRowVector &v2)
+Mat operator*(const NColVector &v1, const NRowVector &v2)
 {
 	if (v1.getSize() != v2.getSize())return Mat(1, 1, CV_64F,Scalar(0));
-	Mat* prod=new Mat(v1.getSize(), v2.getSize(), CV_64F, Scalar(0));
+	Mat prod(v1.getSize(), v2.getSize(), CV_64F, Scalar(0));
 	for (int i = 0; i < v1.getSize(); i++)
-		for (int j = 0; j < v2.getSize(); j++)prod->at<double>(i, j) = v1.getElement(i)*v2.getElement(j);
-	return *prod;
+		for (int j = 0; j < v2.getSize(); j++)prod.at<double>(i, j) = v1.getElement(i)*v2.getElement(j);
+	return prod;
 }
 NColVector operator+(const NColVector &v1, const NColVector &v2)
 {
@@ -374,17 +374,17 @@ NColVector operator+(const NColVector &v1, const NColVector &v2)
 	delete[] arr;
 	return sum;
 }
-NColVector& operator*(const double &d, const NColVector &v)
+NColVector operator*(const double &d, const NColVector &v)
 {
-	NColVector *v1 = new NColVector(v);
-	for (int j = 0; j < v.getSize(); j++)v1->setElement(j, d*v.getElement(j));
-	return *v1;
+	NColVector v1(v);
+	for (int j = 0; j < v.getSize(); j++)v1.setElement(j, d*v.getElement(j));
+	return v1;
 }
-NColVector& operator*(const NColVector &v, const double &d)
+NColVector operator*(const NColVector &v, const double &d)
 {
-	NColVector *v1 = new NColVector(v);
-	for (int j = 0; j < v.getSize(); j++)v1->setElement(j, d*v.getElement(j));
-	return *v1;
+	NColVector v1(v);
+	for (int j = 0; j < v.getSize(); j++)v1.setElement(j, d*v.getElement(j));
+	return v1;
 }
 NRowVector operator+(const NRowVector &v1, const NRowVector &v2)
 {
@@ -400,17 +400,17 @@ NRowVector operator+(const NRowVector &v1, const NRowVector &v2)
 	delete[] arr;
 	return sum;
 }
-NRowVector& operator*(const double &d, const NRowVector &v)
+NRowVector operator*(const double &d, const NRowVector &v)
 {
-	NRowVector *v1 = new NRowVector(v);
-	for (int j = 0; j < v.getSize(); j++)v1->setElement(j, d*v.getElement(j));
-	return *v1;
+	NRowVector v1(v);
+	for (int j = 0; j < v.getSize(); j++)v1.setElement(j, d*v.getElement(j));
+	return v1;
 }
-NRowVector& operator*(const NRowVector &v, const double &d)
+NRowVector operator*(const NRowVector &v, const double &d)
 {
-	NRowVector *v1 = new NRowVector(v);
-	for (int j = 0; j < v.getSize(); j++)v1->setElement(j, d*v.getElement(j));
-	return *v1;
+	NRowVector v1(v);
+	for (int j = 0; j < v.getSize(); j++)v1.setElement(j, d*v.getElement(j));
+	return v1;
 }
 double operator*(const NRowVector &v1, const NColVector &v2)
 {
@@ -422,7 +422,7 @@ double operator*(const NRowVector &v1, const NColVector &v2)
 	}
 	return prod;
 }
-NColVector& operator-(NColVector v1, NColVector v2)
+NColVector operator-(NColVector v1, NColVector v2)
 {
 	int s = v1.getSize() > v2.getSize() ? v1.getSize() : v2.getSize();
 	double *arr = new double[s];
@@ -432,9 +432,9 @@ NColVector& operator-(NColVector v1, NColVector v2)
 		if (v1.getSize() < j)arr[j] += v1.getElement(j);
 		if (v2.getSize() < j)arr[j] -= v2.getElement(j);
 	}
-	NColVector *sum = new NColVector(s, arr);
+	NColVector sum(s, arr);
 	delete[] arr;
-	return *sum;
+	return sum;
 }
 NRowVector operator-(NRowVector v1, NRowVector v2)
 {
@@ -571,6 +571,24 @@ public:
 		INIT_TRANS();
 		INIT_INIT();
 		INIT_GAUSSIAN();
+	}
+	void print()
+	{
+		cout << "Showing init..." << endl;
+		for(int i = 0;i<INIT->rows;i++)
+		{
+			for(int j = 0;j<INIT->cols;j++)
+				cout << INIT->at<double>(i,j) << " ";
+			cout << endl;
+		}
+		cout << endl;
+		cout << "Showing trans..." << endl;
+		for(int i = 0;i<TRANS->rows;i++)
+		{
+			for(int j = 0;j<TRANS->cols;j++)
+				cout << TRANS->at<double>(i,j) << " ";
+			cout << endl;
+		}
 	}
 	void INIT_TRANS()
 	{
@@ -710,7 +728,7 @@ public:
 				{
 					//for (int countj = 0; countj < 15; countj++)
 					//	coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
-					tmp = new NColVector(*SEQ[countf].getObs(0));
+					tmp = new NColVector(SEQ[countf].getObs(0));
 					if (tmp == NULL)
 					{
 						cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -726,6 +744,8 @@ public:
 					//cout << INIT_.at<double>(0, i) << endl;
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
 					//cout << "Processing state " << i << " ..." << endl;
+					delete tmp;
+					tmp = NULL;
 				}
 				for (int j = 1; j < T; j++)
 				{
@@ -737,7 +757,7 @@ public:
 							temp += ALPHA->at<double>(k, j - 1)*TRANS_.at<double>(k, i);
 						}
 						//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j);
-						tmp = new NColVector(*SEQ[countf].getObs(j));
+						tmp = new NColVector(SEQ[countf].getObs(j));
 						if (tmp == NULL)
 						{
 							cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -746,6 +766,8 @@ public:
 						emis_prob = 0.0;
 						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
 						ALPHA->at<double>(i, j) = emis_prob*temp;
+						delete tmp;
+						tmp = NULL;
 					}
 					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
@@ -763,7 +785,7 @@ public:
 						for (int k = 0; k < N; k++)
 						{
 							//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j + 1);
-							tmp = new NColVector(*SEQ[countf].getObs(j+1));
+							tmp = new NColVector(SEQ[countf].getObs(j+1));
 							if (tmp == NULL)
 							{
 								cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -774,6 +796,8 @@ public:
 							temp += BETA->at<double>(k, j + 1)*TRANS_.at<double>(i, k)*emis_prob;
 						}
 						BETA->at<double>(i, j) = temp;
+						delete tmp;
+						tmp = NULL;
 					}
 					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
@@ -801,7 +825,7 @@ public:
 						for (int k = 0; k < N; k++)
 						{
 							//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, i + 1);
-							tmp = new NColVector(*SEQ[countf].getObs(i+1));
+							tmp = new NColVector(SEQ[countf].getObs(i+1));
 							if (tmp == NULL)
 							{
 								cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -812,6 +836,8 @@ public:
 								emis_prob += GAUSS_PROB_[k][countk] * GAUSS[k][countk]->getProb(*tmp);
 
 							temp.at<double>(j, k) = ALPHA->at<double>(j, i)*TRANS_.at<double>(j, k)*emis_prob*BETA->at<double>(k, i + 1) / (Prob[countf]+1e-30);
+							delete tmp;
+							tmp = NULL;
 						}
 					}
 					CHI.push_back(temp);
@@ -841,7 +867,7 @@ public:
 						{
 							temp1 = 0.0;
 							for (int j = 0; j < N; j++)temp1 += TRANS_.at<double>(j,i)*ALPHA->at<double>(j, t - 1);
-							temp1 *= GAUSS[i][m]->getProb(*(SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
+							temp1 *= GAUSS[i][m]->getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
 							num_GAUSS_PROB[i][m] += GAUSS_PROB[i][m] * (temp1+1e-30);
 						}
 						temp2 += GAUSS_PROB[i][m] * temp1;
@@ -861,9 +887,9 @@ public:
 							temp = 0.0;
 							for (int j = 0; j < N; j++)
 								temp += TRANS_.at<double>(i, j)*ALPHA->at<double>(j, t - 1);
-							temp *= GAUSS[i][m]->getProb(*(SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
-							num_GAUSS_MEAN[i][m] = num_GAUSS_MEAN[i][m] + (*(SEQ[countf].getObs(t)))*temp;
-							NColVector v1 = *(SEQ[countf].getObs(t));
+							temp *= GAUSS[i][m]->getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
+							num_GAUSS_MEAN[i][m] = num_GAUSS_MEAN[i][m] + ((SEQ[countf].getObs(t)))*temp;
+							NColVector v1 = (SEQ[countf].getObs(t));
 							v1=v1-*GAUSS_MEAN_[i][m];
 							num_GAUSS_VAR[i][m] = num_GAUSS_VAR[i][m] + ((v1*(*v1.transpose())))*temp;
 							den_GAUSS_MEAN[i][m] += temp;
@@ -875,7 +901,7 @@ public:
 				{
 
 					//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
-					tmp = new NColVector(*SEQ[countf].getObs(0));
+					tmp = new NColVector(SEQ[countf].getObs(0));
 					if (tmp == NULL)
 					{
 						cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -884,6 +910,8 @@ public:
 					emis_prob = 0.0;
 					for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
+					delete tmp;
+					tmp = NULL;
 				}
 				for (int j = 1; j < T; j++)
 				{
@@ -895,7 +923,7 @@ public:
 							temp += ALPHA->at<double>(k, j - 1)*TRANS_.at<double>(k, i);
 						}
 						//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j);
-						tmp = new NColVector(*SEQ[countf].getObs(j));
+						tmp = new NColVector(SEQ[countf].getObs(j));
 						if (tmp == NULL)
 						{
 							cout << "Null pointer returned during initialization of NCOlVector." << endl;
@@ -904,6 +932,8 @@ public:
 						emis_prob = 0.0;
 						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk]->getProb(*tmp));
 						ALPHA->at<double>(i, j) = emis_prob;
+						delete tmp;
+						tmp = NULL;
 					}
 					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
@@ -913,6 +943,8 @@ public:
 					newProb[countf] += ALPHA->at<double>(j, T - 1);
 				}
 				diffProb[countf] = newProb[countf] - Prob[countf];
+			
+				//print size of all
 			}
 			probDiff = NColVector(faces, diffProb);
 			for (int i = 0; i < INIT_.rows; i++)
@@ -927,6 +959,7 @@ public:
 				*GAUSS_VAR_[i][j] = (1 / den_GAUSS_VAR[i][j])*num_GAUSS_VAR[i][j];
 				}
 			count++;
+
 		} while (probDiff.getNorm() > probLimit && count << maxCount);
 		*TRANS = TRANS_.clone();
 		*INIT = INIT_.clone();
@@ -939,6 +972,7 @@ public:
 			GAUSS[i][j]->setMean(*GAUSS_MEAN[i][j]);
 			GAUSS[i][j]->setVar(*GAUSS_VAR[i][j]);
 			}
+		print();
 	}
 	void init(Mat &A)
 	{
@@ -1067,9 +1101,12 @@ bool Person::train()
 
 int main(int argc,char **argv)
 {
-	Person foo;
+	int nof;
+	cout << "Enter number of faces you want to take input from. Maximum is 10, but I dare you give more than 2: " << endl;
+	cin >> nof;
+	Person foo(nof);
 	foo.train();
-	
+
 	//create a video stream
 	
 	//for each frame, run over all hmm we have in the parent folder
