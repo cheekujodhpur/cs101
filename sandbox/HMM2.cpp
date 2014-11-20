@@ -28,11 +28,19 @@ public:
 	{
 		size = 3;
 		v = new Mat(1, 3, CV_64F, Scalar(0));
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 	}
 	NRowVector(int s, double *arr)
 	{
 		size = s;
 		v = new Mat(1, size, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			v->at<double>(0, j) = arr[j];
 
@@ -41,6 +49,10 @@ public:
 	{
 		size = s;
 		v = new Mat(1, s, CV_64F, Scalar(0));
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 	}
 	double getElement(int i) const
 	{
@@ -58,6 +70,10 @@ public:
 	{
 		size = v1.size;
 		v = new Mat(1, size, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			setElement(j, v1.getElement(j));
 	}
@@ -75,6 +91,10 @@ public:
 	{
 		size = v1.size;
 		v = new Mat(1, size, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 		for (int j = 0; j < size; j++)setElement(j, v1.getElement(j));
 		return *this;
 	}
@@ -83,6 +103,10 @@ public:
 		int r = 1;
 		int c = size;
 		Mat* m = new Mat(r, c, CV_64F);
+		if (m == NULL)
+		{
+			cout << "Null pointer returned during initialization of Mat." << endl;
+		}
 		for (int j = 0; j < size; j++)
 		{
 			m->at<double>(0, j) = getElement(j);
@@ -99,11 +123,19 @@ public:
 	{
 		size = 3;
 		v = new Mat(3, 1, CV_64F, Scalar(0));
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 	}
 	NColVector(int s, double *arr)
 	{
 		size = s;
 		v = new Mat(size, 1, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			v->at<double>(j, 0) = arr[j];
 
@@ -117,6 +149,10 @@ public:
 	{
 		size = s;
 		v = new Mat(s, 1, CV_64F, Scalar(d));
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 	}
 	double getElement(int i) const
 	{
@@ -143,6 +179,10 @@ public:
 	{
 		size = v1.size;
 		v = new Mat(size, 1, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			setElement(j, v1.getElement(j));
 	}
@@ -150,12 +190,20 @@ public:
 	{
 		size = v1->getSize();
 		v = new Mat(size, 1, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			setElement(j, v1->getElement(j));
 	}
 	NRowVector* transpose()
 	{
 		NRowVector *v2 = new NRowVector(getSize());
+		if (v2 == NULL)
+		{
+			cout << "Null pointer returned during initialization of NRowVector." << endl;
+		}
 		for (int j = 0; j < getSize(); j++)v2->setElement(j, getElement(j));
 		return v2;
 	}
@@ -173,6 +221,10 @@ public:
 	{
 		size = v1.size;
 		v = new Mat(size, 1, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of NColVector." << endl;
+		}
 		for (int j = 0; j < size; j++)setElement(j, v1.getElement(j));
 		return *this;
 	}
@@ -181,6 +233,10 @@ public:
 		int r = size;
 		int c = 1;
 		Mat* m = new Mat(r, c, CV_64F);
+		if (v == NULL)
+		{
+			cout << "Null pointer returned during initialization of Mat." << endl;
+		}
 		for (int j = 0; j < size; j++)
 			m->at<double>(j, 0) = getElement(j);
 		return m;
@@ -640,15 +696,26 @@ public:
 				/*delete ALPHA;
 				delete BETA;
 				delete GAMMA;*/
+
 				cout << "Processing face " << countf << " ..." << endl;
 				ALPHA =new Mat(N, T, CV_64F,Scalar(0));
 				BETA =new Mat(N, T, CV_64F,Scalar(0));
 				GAMMA =new Mat(N, T, CV_64F,Scalar(0));
+				if (ALPHA == NULL || BETA == NULL || GAMMA == NULL)
+				{
+					cout << "Null pointer returned during initialization of HMM variables." << endl;
+					return;
+				}
 				for (int i = 0; i < N; i++)
 				{
 					//for (int countj = 0; countj < 15; countj++)
 					//	coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
 					tmp = new NColVector(*SEQ[countf].getObs(0));
+					if (tmp == NULL)
+					{
+						cout << "Null pointer returned during initialization of NCOlVector." << endl;
+						return;
+					}
 					emis_prob = 0.0;
 					for (int countk = 0; countk < M; countk++)
 					{
@@ -671,6 +738,11 @@ public:
 						}
 						//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j);
 						tmp = new NColVector(*SEQ[countf].getObs(j));
+						if (tmp == NULL)
+						{
+							cout << "Null pointer returned during initialization of NCOlVector." << endl;
+							return;
+						}
 						emis_prob = 0.0;
 						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
 						ALPHA->at<double>(i, j) = emis_prob*temp;
@@ -692,6 +764,11 @@ public:
 						{
 							//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j + 1);
 							tmp = new NColVector(*SEQ[countf].getObs(j+1));
+							if (tmp == NULL)
+							{
+								cout << "Null pointer returned during initialization of NCOlVector." << endl;
+								return;
+							}
 							emis_prob = 0.0;
 							for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
 							temp += BETA->at<double>(k, j + 1)*TRANS_.at<double>(i, k)*emis_prob;
@@ -725,6 +802,11 @@ public:
 						{
 							//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, i + 1);
 							tmp = new NColVector(*SEQ[countf].getObs(i+1));
+							if (tmp == NULL)
+							{
+								cout << "Null pointer returned during initialization of NCOlVector." << endl;
+								return;
+							}
 							emis_prob = 0.0;
 							for (int countk = 0; countk < M; countk++)
 								emis_prob += GAUSS_PROB_[k][countk] * GAUSS[k][countk]->getProb(*tmp);
@@ -781,7 +863,7 @@ public:
 								temp += TRANS_.at<double>(i, j)*ALPHA->at<double>(j, t - 1);
 							temp *= GAUSS[i][m]->getProb(*(SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
 							num_GAUSS_MEAN[i][m] = num_GAUSS_MEAN[i][m] + (*(SEQ[countf].getObs(t)))*temp;
-							NColVector v1 = *SEQ[countf].getObs(t);
+							NColVector v1 = *(SEQ[countf].getObs(t));
 							v1=v1-*GAUSS_MEAN_[i][m];
 							num_GAUSS_VAR[i][m] = num_GAUSS_VAR[i][m] + ((v1*(*v1.transpose())))*temp;
 							den_GAUSS_MEAN[i][m] += temp;
@@ -794,6 +876,11 @@ public:
 
 					//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
 					tmp = new NColVector(*SEQ[countf].getObs(0));
+					if (tmp == NULL)
+					{
+						cout << "Null pointer returned during initialization of NCOlVector." << endl;
+						return;
+					}
 					emis_prob = 0.0;
 					for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
@@ -809,6 +896,11 @@ public:
 						}
 						//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j);
 						tmp = new NColVector(*SEQ[countf].getObs(j));
+						if (tmp == NULL)
+						{
+							cout << "Null pointer returned during initialization of NCOlVector." << endl;
+							return;
+						}
 						emis_prob = 0.0;
 						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk]->getProb(*tmp));
 						ALPHA->at<double>(i, j) = emis_prob;
@@ -894,6 +986,11 @@ double DCT[DCT_NUM1*DCT_NUM2][SW_SIZE][SW_SIZE];        //declaration of matrix 
 bool Person::train()
 {
 	Obs *observation = new Obs[num_of_faces];
+	if (observation==NULL)
+	{
+		cout << "Null pointer returned during initialization of observation." << endl;
+		return false;
+	}
 	for(int iter = 0;iter<num_of_faces;iter++)
 	{
 	//declare a filestream which reads images in folder with name same as id and path as specified
