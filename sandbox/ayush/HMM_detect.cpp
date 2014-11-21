@@ -1107,11 +1107,13 @@ public:
 				ALPHA = new Mat(N, T, CV_64F, Scalar(0));
 				BETA = new Mat(N, T, CV_64F, Scalar(0));
 				GAMMA = new Mat(N, T, CV_64F, Scalar(0));
+				
 				if (ALPHA == NULL || BETA == NULL || GAMMA == NULL)
 				{
 					cout << "Null pointer returned during initialization of HMM variables." << endl;
 					return;
 				}
+				//Mat rf = Mat::zeros(N,1,CV_64F);
 				for (int i = 0; i < N; i++)
 				{
 					tmp =new NColVector(SEQ[countf].getObs(0));
@@ -1131,8 +1133,13 @@ public:
 					tmp = NULL;
 					//cout << INIT_.at<double>(0, i) << endl;
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
+					//rf.at<double>(0,0) += ALPHA->at<double>(i,0);
 					//cout << "Processing state " << i << " ..." << endl;
 				}
+				//divide by scaling factor;
+				//for(int i = 0;i< N;i++)
+					//ALPHA->at<double>(i,0)/=rf.at<double>(0,0);
+				
 				for (int j = 1; j < T; j++)
 				{
 					for (int i = 0; i < N; i++)
@@ -1155,7 +1162,10 @@ public:
 						tmp = NULL;
 						if (emis_prob < EPSILON)emis_prob = EPSILON;
 						ALPHA->at<double>(i, j) = emis_prob*temp;
+					//	rf.at<double>(j,0) += ALPHA->at<double>(i,j);
 					}
+					//for(int i = 0;i<N;i++)
+					//	ALPHA->at<double>(i,j)/=rf.at<double>(j,0);
 				}
 				Prob[countf] = 0.0;
 				for (int j = 0; j < N; j++)
@@ -1163,7 +1173,7 @@ public:
 					Prob[countf] += ALPHA->at<double>(j, T - 1);
 					if (Prob[countf] < EPSILON)Prob[countf] = EPSILON;
 				}
-				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1;
+				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1.0;///rf.at<double>(T-1,0);
 				for (int j = T - 2; j >= 0; j--)
 				{
 					for (int i = 0; i < N; i++)
@@ -1188,20 +1198,21 @@ public:
 						if (temp < EPSILON)temp = EPSILON;
 						BETA->at<double>(i, j) = temp;
 					}
+					//for(int i = 0;i<N;i++)BETA->at<double>(i,j) /= rf.at<double>(j,0);
 				}
 				cout << "Initializing GAMMA:" << endl;
 				for (int i = 0; i < N; i++)
 				{
 					for (int j = 0; j < T; j++)
 					{
-						double tmp = 0;
-						for (int k = 0; k < N; k++)tmp += ALPHA->at<double>(k, j)*BETA->at<double>(k, j);
-						if (tmp < EPSILON)tmp = EPSILON;
-						GAMMA->at<double>(i, j) = ALPHA->at<double>(i, j)*BETA->at<double>(i, j) / tmp;
+						double temp = 0;
+						for (int k = 0; k < N; k++)temp += ALPHA->at<double>(k, j)*BETA->at<double>(k, j);
+						if (temp < EPSILON)temp = EPSILON;
+						GAMMA->at<double>(i, j) = ALPHA->at<double>(i, j)*BETA->at<double>(i, j) / temp;
 						if (j == 0)
 						{
 							num_INIT.at<double>(j,i) += ALPHA->at<double>(i,j)*BETA->at<double>(i,j);
-							den_INIT.at<double>(j, i) += tmp;
+							den_INIT.at<double>(j, i) += temp;
 							if (den_INIT.at<double>(j, i) < EPSILON)den_INIT.at<double>(j, i) = EPSILON;
 						}
 					}

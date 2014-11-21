@@ -575,6 +575,28 @@ private:
 	int mixtures;
 	Gaussian** GAUSS;
 public:
+	void write(string outfilename)
+	{
+		FileStorage fs(outfilename.c_str(),FileStorage::WRITE);
+		fs << "n_states" << states;
+		fs << "n_mixtures" << mixtures;
+		fs << "trans" << *TRANS;
+		fs << "init" << *INIT;
+		for(int i = 0;i<states;i++)
+			for(int j = 0;j<mixtures;j++)
+			{
+				Mat tmp = GAUSS_MEAN[i][j].convertToMat();
+				string tt = "mean_"+to_string(i)+"_"+to_string(j);
+				fs << tt << tmp;
+			}
+		for(int i = 0;i<states;i++)
+			for(int j = 0;j<mixtures;j++)
+			{
+				string tt = "var_"+to_string(i)+"_"+to_string(j);
+				fs << tt << GAUSS_VAR[i][j];
+			}
+		fs.release();
+	}
 
 	HMM(Obs* O, int num_faces, int num_obs, int num_states, int num_mixtures)
 	{
@@ -1402,10 +1424,7 @@ bool Person::train(int &max_iter)
 	//store hmm, file has header denoting training maximized likelihood
 	string outfilename = "";
 	outfilename += to_string(id) + ".hmm";
-	ofstream outfile;
-	outfile.open(outfilename.c_str(), ios::binary);
-	outfile.write((char*)&model, sizeof(model));
-	outfile.close();
+	model.write(outfilename);
 }
 
 int main(int argc, char **argv)
