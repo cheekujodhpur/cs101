@@ -11,8 +11,8 @@ using namespace std;
 using namespace cv;
 #define PI 3.141592653589793238
 #define INVSQRT2 1.414213562373095048801688724209 * 0.5 //reciprocal of square root of 2
-#define SW_SIZE 8       //size of sliding window
-#define OVERLAP 0     //extent of overlap
+#define SW_SIZE 32       //size of sliding window
+#define OVERLAP 0.5     //extent of overlap
 #define APP_SIZE (int)((1-OVERLAP)*SW_SIZE)     //extent by which to slide the window
 #define INV2SW_SIZE (1.0)/(SW_SIZE)     //reciprocal of window size
 #define IMG_ROW 96     //definition of row size of image
@@ -445,8 +445,8 @@ NColVector operator-(NColVector v1, NColVector v2)
 	for (int j = 0; j < s; j++)
 	{
 		arr[j] = 0;
-		if (v1.getSize() < j)arr[j] += v1.getElement(j);
-		if (v2.getSize() < j)arr[j] -= v2.getElement(j);
+		if (v1.getSize() > j)arr[j] += v1.getElement(j);
+		if (v2.getSize() > j)arr[j] -= v2.getElement(j);
 	}
 	NColVector sum(s, arr);
 	delete[] arr;
@@ -459,8 +459,8 @@ NRowVector operator-(NRowVector v1, NRowVector v2)
 	for (int j = 0; j < s; j++)
 	{
 		arr[j] = 0;
-		if (v1.getSize() < j)arr[j] += v1.getElement(j);
-		if (v2.getSize() < j)arr[j] -= v2.getElement(j);
+		if (v1.getSize() > j)arr[j] += v1.getElement(j);
+		if (v2.getSize() > j)arr[j] -= v2.getElement(j);
 	}
 	NRowVector sum = NRowVector(s, arr);
 	delete[] arr;
@@ -505,7 +505,6 @@ class Gaussian
 {
 	NColVector mean;
 	Mat var;
-	Mat inv_covar;
 public:
 	Gaussian()
 	{
@@ -516,7 +515,6 @@ public:
 	{
 		mean = mu;
 		var = sigma.clone();
-		invert(var, inv_covar);
 	}
 	NColVector getMean() const
 	{
@@ -538,7 +536,8 @@ public:
 	{
 		double det = determinant(var);
 		if (det < EPSILON)return 1;
-
+		Mat inv_covar(15, 15, CV_64F);
+		invert(var, inv_covar);
 		NRowVector mean_t = (x-mean).transpose();
 		NRowVector rhs = mean_t*inv_covar;
 		double num = exp(-(rhs*(x-mean)) / 2);
@@ -658,6 +657,7 @@ public:
 			for (int k = 0; k < mixtures; k++)
 			{
 				GAUSS_MEAN[j][k] = NColVector(15, 1);
+				for (int iter = 0; iter < 15; iter++)GAUSS_MEAN[j][k].setElement(iter, (rand()%10000)/10000);
 				GAUSS_PROB[j][k] = 1.0 / mixtures;
 				GAUSS_VAR[j][k] = Mat(15, 15, CV_64F, Scalar(1));
 				for (int r = 0; r < 15; r++)
