@@ -6,7 +6,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <cmath>
 #include <string>
-#include <conio.h>
 using namespace std;
 using namespace cv;
 #define PI 3.141592653589793238
@@ -383,8 +382,8 @@ NColVector operator+(const NColVector &v1, const NColVector &v2)
 	for (int j = 0; j < s; j++)
 	{
 		arr[j] = 0;
-		if (v1.getSize() < j)arr[j] += v1.getElement(j);
-		if (v2.getSize() < j)arr[j] += v2.getElement(j);
+		if (v1.getSize() > j)arr[j] += v1.getElement(j);
+		if (v2.getSize() > j)arr[j] += v2.getElement(j);
 	}
 	NColVector sum = NColVector(s, arr);
 	delete[] arr;
@@ -639,6 +638,18 @@ public:
 	void INIT_TRANS()
 	{
 		TRANS = new Mat(states, states, CV_64F, Scalar(((double)(1.0)) / states));
+		for(int i = 0;i<TRANS->rows;i++)
+			for(int j = 0;j<TRANS->cols;j++)
+				TRANS->at<double>(i,j) = (rand()%10000)/10000.0;
+		double sum;
+		for(int i = 0;i<TRANS->rows;i++)
+		{
+			sum = 0;
+			for(int j = 0;j<TRANS->cols;j++)
+				sum += TRANS->at<double>(i,j);
+			for(int j = 0;j<TRANS->cols;j++)
+				TRANS->at<double>(i,j)/=sum;
+		}
 	}
 	void INIT_GAUSSIAN()
 	{
@@ -657,7 +668,7 @@ public:
 			for (int k = 0; k < mixtures; k++)
 			{
 				GAUSS_MEAN[j][k] = NColVector(15, 1);
-				for (int iter = 0; iter < 15; iter++)GAUSS_MEAN[j][k].setElement(iter, (rand()%10000)/10000);
+				for (int iter = 0; iter < 15; iter++)GAUSS_MEAN[j][k].setElement(iter, (rand()%10000)/10000.0);
 				GAUSS_PROB[j][k] = 1.0 / mixtures;
 				GAUSS_VAR[j][k] = Mat(15, 15, CV_64F, Scalar(1));
 				for (int r = 0; r < 15; r++)
@@ -718,6 +729,19 @@ public:
 	void INIT_INIT()
 	{
 		INIT = new Mat(1, states, CV_64F, Scalar(((double)(1.0)) / states));
+		for(int i = 0;i<INIT->rows;i++)
+			for(int j = 0;j<INIT->cols;j++)
+				INIT->at<double>(i,j) = (rand()%10000)/10000.0;
+		double sum;
+		for(int i = 0;i<INIT->rows;i++)
+		{
+			sum = 0;
+			for(int j = 0;j<INIT->cols;j++)
+				sum += INIT->at<double>(i,j);
+			for(int j = 0;j<INIT->cols;j++)
+				INIT->at<double>(i,j)/=sum;
+		}
+
 	}
 	void correct(Mat* m)
 	{
@@ -974,7 +998,6 @@ public:
 					cout << "Null pointer returned during initialization of HMM variables." << endl;
 					return;
 				}
-				cout << " Initializing forward variables:" << endl;
 				for (int i = 0; i < N; i++)
 				{
 					tmp =new NColVector(SEQ[countf].getObs(0));
@@ -1014,21 +1037,18 @@ public:
 						}
 						emis_prob = 0.0;
 						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk].getProb(*tmp);
-						cout << emis_prob;
 						delete tmp;
 						tmp = NULL;
 						if (emis_prob < EPSILON)emis_prob = EPSILON;
 						ALPHA->at<double>(i, j) = emis_prob*temp;
 					}
 				}
-				cout << " Initializing probabilities:" << endl;
 				Prob[countf] = 0.0;
 				for (int j = 0; j < N; j++)
 				{
 					Prob[countf] += ALPHA->at<double>(j, T - 1);
 					if (Prob[countf] < EPSILON)Prob[countf] = EPSILON;
 				}
-				cout << " Initializing backward variables:" << endl;
 				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1;
 				for (int j = T - 2; j >= 0; j--)
 				{
@@ -1055,8 +1075,6 @@ public:
 						BETA->at<double>(i, j) = temp;
 					}
 				}
-				cout << "BETA" << endl;
-				cout << *BETA << endl;
 				cout << "Initializing GAMMA:" << endl;
 				for (int i = 0; i < N; i++)
 				{
@@ -1068,7 +1086,7 @@ public:
 						GAMMA->at<double>(i, j) = ALPHA->at<double>(i, j)*BETA->at<double>(i, j) / tmp;
 						if (j == 0)
 						{
-							num_INIT.at<double>(j, i) += ALPHA->at<double>(i, j)*BETA->at<double>(i, j);
+							num_INIT.at<double>(j,i) += ALPHA->at<double>(i,j)*BETA->at<double>(i,j);
 							den_INIT.at<double>(j, i) += tmp;
 							if (den_INIT.at<double>(j, i) < EPSILON)den_INIT.at<double>(j, i) = EPSILON;
 						}
@@ -1210,12 +1228,25 @@ public:
 				for (int j = 0; j < M; j++)
 				{
 				GAUSS_PROB_[i][j] = num_GAUSS_PROB[i][j] / den_GAUSS_PROB[i][j];
-				GAUSS_MEAN_[i][j] = (1 / den_GAUSS_MEAN[i][j])*num_GAUSS_MEAN[i][j];
-				GAUSS_VAR_[i][j] = (1 / den_GAUSS_VAR[i][j])*num_GAUSS_VAR[i][j];
+				GAUSS_MEAN_[i][j] = (1.0 / den_GAUSS_MEAN[i][j])*num_GAUSS_MEAN[i][j];
+				GAUSS_VAR_[i][j] = (1.0 / den_GAUSS_VAR[i][j])*num_GAUSS_VAR[i][j];
 				}
 			for (int countf = 0; countf < faces;countf++)
 				Prob[countf] = newProb[countf];
 			count++;
+		*TRANS = TRANS_.clone();
+		*INIT = INIT_.clone();
+		for (int i = 0; i < states; i++)
+			for (int j = 0; j < mixtures; j++)
+			{
+			GAUSS_PROB[i][j] = GAUSS_PROB_[i][j];
+			GAUSS_MEAN[i][j] = GAUSS_MEAN_[i][j];
+			GAUSS_VAR[i][j] = GAUSS_VAR_[i][j];
+			GAUSS[i][j].setMean(GAUSS_MEAN[i][j]);
+			GAUSS[i][j].setVar(GAUSS_VAR[i][j]);
+			}
+
+		print();
 		} while (probDiff.getNorm()/(faces) > probLimit && count < maxCount);
 		*TRANS = TRANS_.clone();
 		*INIT = INIT_.clone();
@@ -1228,7 +1259,6 @@ public:
 			GAUSS[i][j].setMean(GAUSS_MEAN[i][j]);
 			GAUSS[i][j].setVar(GAUSS_VAR[i][j]);
 			}
-		print();
 	}
 	void print()
 	{
@@ -1247,7 +1277,21 @@ public:
 				cout << TRANS->at<double>(i, j) << " ";
 			cout << endl;
 		}
-		_getche();
+		cout << endl;
+		cout << "Showing mean..." << endl;
+		for(int i = 0;i<states;i++)
+		{
+			for(int j = 0;j<mixtures;j++)
+			{
+				for(int k = 0;k<15;k++)
+					cout << GAUSS_MEAN[i][j].getElement(k) << " ";
+				cout << "<>";
+			}
+			cout << endl;
+		}
+		for(int i = 0;i<states;i++)
+			for(int j = 0;j<mixtures;j++)
+				cout << GAUSS_VAR[i][j] <<endl;
 	}
 	void init(Mat &A)
 	{
@@ -1269,7 +1313,7 @@ public:
 	Person();
 	Person(unsigned int nof);
 	unsigned long int getId(){ return id; }
-	bool train();
+	bool train(int &max_iter);
 };
 
 unsigned long int Person::num = 0;
@@ -1286,7 +1330,7 @@ Person::Person(unsigned int nof)
 	num_of_faces = nof;
 }
 double DCT[DCT_NUM1*DCT_NUM2][SW_SIZE][SW_SIZE];        //declaration of matrix of matrices of DCT coefficients
-bool Person::train()
+bool Person::train(int &max_iter)
 {
 	
 	
@@ -1354,7 +1398,7 @@ bool Person::train()
 
 	//train hmm
 	HMM model(observation, num_of_faces, DCT_NUM1*DCT_NUM2, 5, 1);
-	model.train(1E-40, 3);
+	model.train(1E-40, max_iter);
 	//store hmm, file has header denoting training maximized likelihood
 	string outfilename = "";
 	outfilename += to_string(id) + ".hmm";
@@ -1368,10 +1412,13 @@ int main(int argc, char **argv)
 {
 	int nof;
 	cout << DBL_MAX << endl;
-	cout << "Enter number of faces you want to take input from. Maximum is 10, but I dare you give more than 2: " << endl;
+	cout << "Number of faces? " << endl;
 	cin >> nof;
+	int max_iter;
+	cout << "Maximum iterations? " << endl;
+	cin >> max_iter;
 	Person foo(nof);
-	foo.train();
+	foo.train(max_iter);
 
 	//create a video stream
 
