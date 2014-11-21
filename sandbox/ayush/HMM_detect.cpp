@@ -1113,7 +1113,7 @@ public:
 					cout << "Null pointer returned during initialization of HMM variables." << endl;
 					return;
 				}
-				//Mat rf = Mat::zeros(N,1,CV_64F);
+				Mat rf = Mat::zeros(T,1,CV_64F);
 				for (int i = 0; i < N; i++)
 				{
 					tmp =new NColVector(SEQ[countf].getObs(0));
@@ -1133,12 +1133,12 @@ public:
 					tmp = NULL;
 					//cout << INIT_.at<double>(0, i) << endl;
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
-					//rf.at<double>(0,0) += ALPHA->at<double>(i,0);
+					rf.at<double>(0,0) += ALPHA->at<double>(i,0);
 					//cout << "Processing state " << i << " ..." << endl;
 				}
 				//divide by scaling factor;
-				//for(int i = 0;i< N;i++)
-					//ALPHA->at<double>(i,0)/=rf.at<double>(0,0);
+				for(int i = 0;i< N;i++)
+					ALPHA->at<double>(i,0)/=rf.at<double>(0,0);
 				
 				for (int j = 1; j < T; j++)
 				{
@@ -1162,10 +1162,10 @@ public:
 						tmp = NULL;
 						if (emis_prob < EPSILON)emis_prob = EPSILON;
 						ALPHA->at<double>(i, j) = emis_prob*temp;
-					//	rf.at<double>(j,0) += ALPHA->at<double>(i,j);
+						rf.at<double>(j,0) += ALPHA->at<double>(i,j);
 					}
-					//for(int i = 0;i<N;i++)
-					//	ALPHA->at<double>(i,j)/=rf.at<double>(j,0);
+					for(int i = 0;i<N;i++)
+						ALPHA->at<double>(i,j)/=rf.at<double>(j,0);
 				}
 				Prob[countf] = 0.0;
 				for (int j = 0; j < N; j++)
@@ -1173,7 +1173,7 @@ public:
 					Prob[countf] += ALPHA->at<double>(j, T - 1);
 					if (Prob[countf] < EPSILON)Prob[countf] = EPSILON;
 				}
-				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1.0;///rf.at<double>(T-1,0);
+				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1.0/rf.at<double>(T-1,0);
 				for (int j = T - 2; j >= 0; j--)
 				{
 					for (int i = 0; i < N; i++)
@@ -1198,7 +1198,7 @@ public:
 						if (temp < EPSILON)temp = EPSILON;
 						BETA->at<double>(i, j) = temp;
 					}
-					//for(int i = 0;i<N;i++)BETA->at<double>(i,j) /= rf.at<double>(j,0);
+					for(int i = 0;i<N;i++)BETA->at<double>(i,j) /= rf.at<double>(j,0);
 				}
 				cout << "Initializing GAMMA:" << endl;
 				for (int i = 0; i < N; i++)
@@ -1299,6 +1299,8 @@ public:
 						}
 					}
 				}
+				for(int i = 0;i<T;i++)
+					rf.at<double>(i,0) = 0;
 				for (int i = 0; i < N; i++)
 				{
 					tmp = new NColVector(SEQ[countf].getObs(0));
@@ -1312,7 +1314,10 @@ public:
 					delete tmp;
 					tmp = NULL;
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
+					rf.at<double>(0,0) += ALPHA->at<double>(i,0);
 				}
+				for(int i = 0;i<N;i++)
+					ALPHA->at<double>(i,0)/=rf.at<double>(0,0);
 				for (int j = 1; j < T; j++)
 				{
 					for (int i = 0; i < N; i++)
@@ -1334,7 +1339,10 @@ public:
 						delete tmp;
 						tmp = NULL;
 						ALPHA->at<double>(i, j) = emis_prob;
+						rf.at<double>(j,0) = ALPHA->at<double>(i,j);
 					}
+					for(int i = 0;i<N;i++)
+						ALPHA->at<double>(i,j)/=rf.at<double>(j,0);
 					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
 				newProb[countf] = 0.0;
