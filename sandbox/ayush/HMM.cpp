@@ -12,14 +12,14 @@ using namespace cv;
 #define PI 3.141592653589793238
 #define INVSQRT2 1.414213562373095048801688724209 * 0.5 //reciprocal of square root of 2
 #define SW_SIZE 8       //size of sliding window
-#define OVERLAP 0.5     //extent of overlap
+#define OVERLAP 0     //extent of overlap
 #define APP_SIZE (int)((1-OVERLAP)*SW_SIZE)     //extent by which to slide the window
 #define INV2SW_SIZE (1.0)/(SW_SIZE)     //reciprocal of window size
-#define IMG_ROW 512     //definition of row size of image
-#define IMG_COL 512//definition of column size of image
+#define IMG_ROW 96     //definition of row size of image
+#define IMG_COL 96//definition of column size of image
 #define DCT_NUM1 (int)((IMG_ROW-SW_SIZE+APP_SIZE)/APP_SIZE)     //total number of DCT matrices the image will produce
 #define DCT_NUM2 (int)((IMG_COL-SW_SIZE+APP_SIZE)/APP_SIZE)     //total number of DCT matrices the image will produce
-#define EPSILON 1E-30
+#define EPSILON 1E-200
 class NRowVector
 {
 	Mat* v;
@@ -226,19 +226,12 @@ public:
 		for (int j = 0; j < size; j++)setElement(j, v1.getElement(j));
 		return *this;
 	}
-	Mat* convertToMat()
+	Mat convertToMat()
 	{
-		int r = size;
-		int c = 1;
-		Mat* m = new Mat(r, c, CV_64F);
-		if (m == NULL)
-		{
-			cout << "Null pointer returned during initialization of Mat." << endl;
-		}
-		for (int j = 0; j < size; j++)
-			m->at<double>(j, 0) = getElement(j);
+		Mat m(*v);
 		return m;
 	}
+
 };
 class Obs
 {
@@ -248,21 +241,44 @@ public:
 	{
 		obs = new Mat(1, 15, CV_64F, Scalar(0));
 	}
-	Obs(double DCT[][SW_SIZE][SW_SIZE], int size)
+	Obs(double D[][SW_SIZE][SW_SIZE],int size)
 	{
-		obs = new Mat(15, size, CV_64F);
+		obs = new Mat(15, size, CV_64F, Scalar(0));
 		for (int i = 0; i < size; i++)
 		{
 			for (int k = 0, counter = 0; k < 5; k++)
 			{
 				for (int j = 0; j <= k; j++, counter++)
 				{
-					if (k % 2 == 0) obs->at<double>(counter, i) = DCT[size][j][k - j];
-					else obs->at<double>(counter, i) = DCT[size][k - j][j];
+					if (k % 2 == 0) obs->at<double>(counter, i) = (double)(D[i][k-j][j]);
+					else obs->at<double>(counter, i) = (double)D[i][j][k-j];
 				}
+			}
+			double max = -DBL_MAX, min = DBL_MAX;
+			for (int iter = 0; iter < 15; iter++)
+			{
+				if (obs->at<double>(iter, i) > max)max = obs->at<double>(iter, i);
+				else if (obs->at<double>(iter, i) < min)min = obs->at<double>(iter, i);
+			}
+			for (int iter = 0; iter < 15; iter++)
+			{
+				obs->at<double>(iter, i) = obs->at<double>(iter, i) / (max - min);
 			}
 		}
 
+	}
+	void disp()
+	{
+		cout.setf(ios::fixed);
+		for (int c = 0; c < obs->cols; c++)
+		{
+			for (int r = 0; r < 15; r++)
+			{
+				cout << obs->at<double>(r, c)<<"\t";
+			}
+			cout << endl;
+		}
+		cout.unsetf(ios::fixed);
 	}
 	Obs(const Obs &o)
 	{
@@ -280,15 +296,15 @@ public:
 	}
 	void setObs(double DCT[][SW_SIZE][SW_SIZE], int size)
 	{
-		obs = new Mat(size, 15, CV_64F);
+		obs = new Mat(15,size, CV_64F);
 		for (int i = 0; i < size; i++)
 		{
 			for (int k = 0, counter = 0; k < 5; k++)
 			{
 				for (int j = 0; j <= k; j++, counter++)
 				{
-					if (k % 2 == 0) obs->at<double>(i, counter) = DCT[size][j][k - j];
-					else obs->at<double>(i, counter) = DCT[size][k - j][j];
+					if (k % 2 == 0) obs->at<double>(counter,i) = (double)DCT[size][j][k - j];
+					else obs->at<double>(counter,i) = (double)DCT[size][k - j][j];
 				}
 			}
 		}
@@ -495,7 +511,6 @@ public:
 	{
 		mean = 0;
 		var = 1;
-		invert(var, inv_covar);
 	}
 	Gaussian(const NColVector &mu, const Mat &sigma)
 	{
@@ -523,9 +538,10 @@ public:
 	{
 		double det = determinant(var);
 		if (det < EPSILON)return 1;
-		NRowVector mean_t = mean.transpose();
+
+		NRowVector mean_t = (x-mean).transpose();
 		NRowVector rhs = mean_t*inv_covar;
-		double num = exp(-(rhs*mean) / 2);
+		double num = exp(-(rhs*(x-mean)) / 2);
 		double den = sqrt(2 * pow(PI, var.rows)*abs(determinant(var)));
 		double p = num / den;
 		return  p;
@@ -552,14 +568,14 @@ private:
 	Obs* SEQ;
 	Mat* TRANS;
 	Mat* INIT;
-	NColVector ***GAUSS_MEAN;
-	Mat ***GAUSS_VAR;
+	NColVector **GAUSS_MEAN;
+	Mat **GAUSS_VAR;
 	double** GAUSS_PROB;
 	int faces;
 	int n_obs;
 	int states;
 	int mixtures;
-	Gaussian*** GAUSS;
+	Gaussian** GAUSS;
 public:
 
 	HMM(Obs* O, int num_faces, int num_obs, int num_states, int num_mixtures)
@@ -627,54 +643,251 @@ public:
 	}
 	void INIT_GAUSSIAN()
 	{
-		GAUSS = new Gaussian**[states];
-		GAUSS_MEAN = new NColVector**[states];
-		GAUSS_VAR = new Mat**[states];
+		GAUSS = new Gaussian*[states];
+		GAUSS_MEAN = new NColVector*[states];
+		GAUSS_VAR = new Mat*[states];
 		GAUSS_PROB = new double*[states];
 		if (GAUSS == NULL) { cout << "Problem" << endl; return; }
 		for (int j = 0; j < states; j++)
 		{
-			GAUSS[j] = new Gaussian*[mixtures];
-			GAUSS_MEAN[j] = new NColVector*[mixtures];
-			GAUSS_VAR[j] = new Mat*[mixtures];
+			GAUSS[j] = new Gaussian[mixtures];
+			GAUSS_MEAN[j] = new NColVector[mixtures];
+			GAUSS_VAR[j] = new Mat[mixtures];
 			GAUSS_PROB[j] = new double[mixtures];
 			if (GAUSS[j] == NULL) { cout << "Problem" << endl; return; }
 			for (int k = 0; k < mixtures; k++)
 			{
-				GAUSS_MEAN[j][k] = new NColVector(15, 1);
+				GAUSS_MEAN[j][k] = NColVector(15, 1);
 				GAUSS_PROB[j][k] = 1.0 / mixtures;
-				GAUSS_VAR[j][k] = new Mat(15, 15, CV_64F, 1);
+				GAUSS_VAR[j][k] = Mat(15, 15, CV_64F, Scalar(1));
 				for (int r = 0; r < 15; r++)
-					for (int c = 0; c < 15; c++)if (r != c)GAUSS_VAR[j][k]->at<double>(r, c) = 0;
-				GAUSS[j][k] = new Gaussian(*GAUSS_MEAN[j][k], *GAUSS_VAR[j][k]);
-				GAUSS[j][k]->setMean(*GAUSS_MEAN[j][k]);
-				GAUSS[j][k]->setVar(*GAUSS_VAR[j][k]);
-
+					for (int c = 0; c < 15; c++)if (r != c)GAUSS_VAR[j][k].at<double>(r, c) = 0;
+				GAUSS[j][k] = Gaussian(GAUSS_MEAN[j][k], GAUSS_VAR[j][k]);
 			}
 
 		}
 	}
+	void INIT_GAUSSIAN2()
+	{
+		GAUSS = new Gaussian*[states];
+		GAUSS_MEAN = new NColVector*[states];
+		GAUSS_VAR = new Mat*[states];
+		GAUSS_PROB = new double*[states];
+		if (GAUSS == NULL) { cout << "Problem" << endl; return; }
+		int part = n_obs / mixtures;
+		NColVector* sum=new NColVector[mixtures];
+		Mat *obsClust = new Mat[mixtures];
+		for (int i = 0; i < mixtures; i++)sum[i] = NColVector(15,0.0);
+		for (int j = 0; j < mixtures; j++)
+		{
+			obsClust[j] = Mat(15, part*faces, CV_64F);
+			for (int i = 0; i < faces; i++)
+			{
+				for (int k = j*mixtures, count = 0; count < part; k++, count++)
+				{
+					sum[j] = sum[j] + SEQ[i].getObs(k);
+					(obsClust[j]).col(part*i + k) = SEQ[i].getObs()->col(k);
+				}
+				
+			}
+			sum[j] = sum[j] * (1 / (faces*part));
+		}
+		for (int j = 0; j < states; j++)
+		{
+			GAUSS[j] = new Gaussian[mixtures];
+			GAUSS_MEAN[j] = new NColVector[mixtures];
+			GAUSS_VAR[j] = new Mat[mixtures];
+			GAUSS_PROB[j] = new double[mixtures];
+			if (GAUSS[j] == NULL) { cout << "Problem" << endl; return; }
+			for (int k = 0; k < mixtures; k++)
+			{
+				GAUSS_MEAN[j][k] = NColVector(sum[j]);
+				GAUSS_PROB[j][k] = 1.0 / mixtures;
+				Mat covar(15, 15, CV_64F);
+				Mat mean(15, 1, CV_64F, Scalar(0));
+				calcCovarMatrix(obsClust[k], covar, mean, CV_COVAR_COLS);
+				GAUSS_VAR[j][k] = Mat(covar);
+				GAUSS[j][k].setMean(GAUSS_MEAN[j][k]);
+				GAUSS[j][k].setVar(GAUSS_VAR[j][k]);
+			}
+
+		}
+		delete[] sum;
+		delete[] obsClust;
+	}
 	void INIT_INIT()
 	{
-		INIT = new Mat(1, states, CV_64F, ((double)(1.0)) / states);
+		INIT = new Mat(1, states, CV_64F, Scalar(((double)(1.0)) / states));
 	}
-	
+	void correct(Mat* m)
+	{
+		for (int j = 0; j < m->rows; j++)
+		{
+			for (int k = 0; k < m->cols; k++)
+			{
+				if (m->at<double>(j, k) < EPSILON)m->at<double>(j, k) = EPSILON;
+			}
+		}
+	}
+	static double getMaxLikelihood(Obs &o, Mat &trans, Mat &init, Gaussian **g, double **gauss_prob,int nstates,int nmix)
+	{
+		
+		Mat DELTA(nstates, o.getObs()->cols, CV_64F, Scalar(0));
+		Mat SIGMA(nstates, o.getObs()->cols, CV_32S, Scalar(0));
+		double prob = 0;
+		double fnToMax;
+		NColVector *tmp = NULL;
+		for (int j = 0; j < nstates; j++)
+		{
+			tmp = new NColVector(o.getObs(0));
+			if (tmp == NULL)
+			{
+				cout << "Error in initializing col vector ..." << endl;
+				return 0;
+			}
+			double emis_prob = 0;
+			for (int m = 0; m < nmix; m++)emis_prob += gauss_prob[j][m] * g[j][m].getProb(*tmp);
+			DELTA.at<double>(j, 0) = init.at<double>(0, j)*emis_prob;
+		}
+		for (int t = 1; t < o.getObs()->cols; t++)
+		{
+			for (int j = 0; j < nstates; j++)
+			{
+				fnToMax = DELTA.at<double>(0, t - 1)*trans.at<double>(0, j);
+				SIGMA.at<int>(j, t) = 0;
+				tmp = new NColVector(o.getObs(t));
+				if (tmp == NULL)
+				{
+					cout << "Error in initializing col vector ..." << endl;
+					return 0;
+				}
+				double emis_prob = 0;
+				for (int m = 0; m < nmix; m++)emis_prob += gauss_prob[j][m] * g[j][m].getProb(*tmp);
+				delete tmp;
+				tmp = NULL;
+				DELTA.at<double>(j, t) = fnToMax*emis_prob;
+				for (int k = 1; k < nstates; k++)
+				{
+					double temp = DELTA.at<double>(0, t - 1)*trans.at<double>(0, j);
+					if (temp > fnToMax)
+					{
+						SIGMA.at<int>(j, t) = k;
+						tmp = new NColVector(o.getObs(t));
+						if (tmp == NULL)
+						{
+							cout << "Error in initializing col vector ..." << endl;
+							return 0;
+						}
+						double emis_prob = 0;
+						for (int m = 0; m < nmix; m++)emis_prob += gauss_prob[j][m] * g[j][m].getProb(*tmp);
+						delete tmp;
+						tmp = NULL;
+						DELTA.at<double>(j, t) = temp*emis_prob;
+						fnToMax = temp;
+					}
+				}
+			}
+		}
+		int n_obs = o.getObs()->cols;
+		int *path_states = new int[n_obs];
+		path_states[n_obs - 1] = 0;
+		for (int j = 1; j < nstates; j++)
+			if (DELTA.at<double>(j, n_obs - 1) - DELTA.at<double>(path_states[n_obs - 1], n_obs - 1) > EPSILON)
+				path_states[n_obs - 1] = j;
+		for (int t = n_obs - 2; t >= 0; t--)path_states[t] = SIGMA.at<int>(path_states[t + 1], t + 1);
+		prob += (DELTA.at<double>(path_states[n_obs - 1], n_obs - 1));
+		return prob;
+	}
+	double ViterbiLikelihood()
+	{
+		Mat DELTA(states, n_obs, CV_64F,Scalar(0));
+		Mat SIGMA(states, n_obs, CV_32S, Scalar(0));
+		double prob=0;
+		double fnToMax;
+		for (int countf = 0; countf < faces; countf++)
+		{
+			NColVector *tmp = NULL;
+			for (int j = 0; j < states; j++)
+			{
+			tmp = new NColVector(SEQ[countf].getObs(0));
+			if (tmp == NULL)
+			{
+				cout << "Error in initializing col vector ..." << endl;
+				return 0;
+			}
+			double emis_prob = 0;
+			for (int m = 0; m < mixtures; m++)emis_prob += GAUSS_PROB[j][m] * GAUSS[j][m].getProb(*tmp);
+			DELTA.at<double>(j, 0) = INIT->at<double>(0, j)*emis_prob;
+			}
+			for (int t = 1; t < n_obs; t++)
+			{
+				for (int j = 0; j < states; j++)
+				{
+					fnToMax = DELTA.at<double>(0, t - 1)*TRANS->at<double>(0, j);
+					SIGMA.at<int>(j, t) = 0;
+					tmp = new NColVector(SEQ[countf].getObs(t));
+					if (tmp == NULL)
+					{
+						cout << "Error in initializing col vector ..." << endl;
+						return 0;
+					}
+					double emis_prob = 0;
+					for (int m = 0; m < mixtures; m++)emis_prob += GAUSS_PROB[j][m] * GAUSS[j][m].getProb(*tmp);
+					delete tmp;
+					tmp = NULL;
+					DELTA.at<double>(j, t) = fnToMax*emis_prob;
+					for (int k = 1; k < states; k++)
+					{
+						double temp = DELTA.at<double>(0, t - 1)*TRANS->at<double>(0, j);
+						if (temp > fnToMax)
+						{
+							SIGMA.at<int>(j, t) = k;
+							tmp = new NColVector(SEQ[countf].getObs(t));
+							if (tmp == NULL)
+							{
+								cout << "Error in initializing col vector ..." << endl;
+								return 0;
+							}
+							double emis_prob = 0;
+							for (int m = 0; m < mixtures; m++)emis_prob += GAUSS_PROB[j][m] * GAUSS[j][m].getProb(*tmp);
+							delete tmp;
+							tmp = NULL;
+							DELTA.at<double>(j, t) = temp*emis_prob;
+							fnToMax = temp;
+						}					
+					}
+				}
+			}
+
+			int *path_states = new int[n_obs];
+			path_states[n_obs - 1] = 0;
+			for (int j = 1; j < states; j++)
+				if(DELTA.at<double>(j, n_obs - 1) - DELTA.at<double>(path_states[n_obs - 1], n_obs - 1) > EPSILON)
+					path_states[n_obs - 1] = j;
+			for (int t = n_obs - 2; t >= 0; t--)path_states[t] = SIGMA.at<int>(path_states[t + 1], t + 1);
+			prob += (DELTA.at<double>(path_states[n_obs-1], n_obs-1));
+			
+		}
+		prob = prob / faces;
+		return prob;
+	}
 	void train(double probLimit, int maxCount)
 	{
+		print();
 		cout << "Beginning training..." << endl;
-		Mat*** GAUSS_VAR_;
-		NColVector*** GAUSS_MEAN_;
+		Mat** GAUSS_VAR_;
+		NColVector** GAUSS_MEAN_;
 		double** GAUSS_PROB_;
-		GAUSS_VAR_ = new Mat**[states];
-		GAUSS_MEAN_ = new NColVector**[states];
+		GAUSS_VAR_ = new Mat*[states];
+		GAUSS_MEAN_ = new NColVector*[states];
 		GAUSS_PROB_ = new double*[states];
 
 		cout << "Declaring Gaussian matrices..." << endl;
 		for (int i = 0; i < states; i++)
 		{
 			GAUSS_PROB_[i] = new double[mixtures];
-			GAUSS_MEAN_[i] = new NColVector*[mixtures];
-			GAUSS_VAR_[i] = new Mat*[mixtures];
+			GAUSS_MEAN_[i] = new NColVector[mixtures];
+			GAUSS_VAR_[i] = new Mat[mixtures];
 			for (int j = 0; j < mixtures; j++)
 			{
 				GAUSS_PROB_[i][j] = GAUSS_PROB[i][j];
@@ -732,7 +945,7 @@ public:
 			for (int j = 0; j < mixtures; j++)
 			{
 				num_GAUSS_PROB[i][j] = 0;
-				num_GAUSS_MEAN[i][j] = NColVector(0 * *GAUSS_MEAN[i][j]);
+				num_GAUSS_MEAN[i][j] = NColVector(0 * GAUSS_MEAN[i][j]);
 				num_GAUSS_VAR[i][j] = Mat::zeros(15, 15, CV_64F);
 				den_GAUSS_PROB[i][j] = 0;
 				den_GAUSS_MEAN[i][j] = 0;
@@ -761,10 +974,9 @@ public:
 					cout << "Null pointer returned during initialization of HMM variables." << endl;
 					return;
 				}
+				cout << " Initializing forward variables:" << endl;
 				for (int i = 0; i < N; i++)
 				{
-					//for (int countj = 0; countj < 15; countj++)
-					//	coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
 					tmp =new NColVector(SEQ[countf].getObs(0));
 					if (tmp == NULL)
 					{
@@ -776,7 +988,7 @@ public:
 					{
 						/*Gaussian abcd = *GAUSS[i][countk];
 						double efgh =  abcd.getProb(*tmp);*/
-						emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk]->getProb(*tmp));
+						emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk].getProb(*tmp));
 					}
 					delete tmp;
 					tmp = NULL;
@@ -793,7 +1005,6 @@ public:
 						{
 							temp += ALPHA->at<double>(k, j - 1)*TRANS_.at<double>(k, i);
 						}
-						//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, j);
 						if (temp < EPSILON)temp = EPSILON;
 						tmp = new NColVector(SEQ[countf].getObs(j));
 						if (tmp == NULL)
@@ -802,20 +1013,22 @@ public:
 							return;
 						}
 						emis_prob = 0.0;
-						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
+						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk].getProb(*tmp);
+						cout << emis_prob;
 						delete tmp;
 						tmp = NULL;
 						if (emis_prob < EPSILON)emis_prob = EPSILON;
 						ALPHA->at<double>(i, j) = emis_prob*temp;
 					}
-					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
+				cout << " Initializing probabilities:" << endl;
 				Prob[countf] = 0.0;
 				for (int j = 0; j < N; j++)
 				{
 					Prob[countf] += ALPHA->at<double>(j, T - 1);
 					if (Prob[countf] < EPSILON)Prob[countf] = EPSILON;
 				}
+				cout << " Initializing backward variables:" << endl;
 				for (int i = 0; i < N; i++)BETA->at<double>(i, T - 1) = 1;
 				for (int j = T - 2; j >= 0; j--)
 				{
@@ -832,16 +1045,19 @@ public:
 								return;
 							}
 							emis_prob = 0.0;
-							for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
+							for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk].getProb(*tmp);
 							delete tmp;
 							tmp = NULL;
 							if (emis_prob < EPSILON)emis_prob = EPSILON;
 							temp += BETA->at<double>(k, j + 1)*TRANS_.at<double>(i, k)*emis_prob;
 						}
+						if (temp < EPSILON)temp = EPSILON;
 						BETA->at<double>(i, j) = temp;
 					}
-					//cout << "Processing observation no. " << j << " ..." << endl;
 				}
+				cout << "BETA" << endl;
+				cout << *BETA << endl;
+				cout << "Initializing GAMMA:" << endl;
 				for (int i = 0; i < N; i++)
 				{
 					for (int j = 0; j < T; j++)
@@ -856,7 +1072,6 @@ public:
 							den_INIT.at<double>(j, i) += tmp;
 							if (den_INIT.at<double>(j, i) < EPSILON)den_INIT.at<double>(j, i) = EPSILON;
 						}
-						//cout << "Processing observation no. " << j << " ..." << endl;
 					}
 				}
 				Vector <Mat> CHI;
@@ -867,7 +1082,6 @@ public:
 					{
 						for (int k = 0; k < N; k++)
 						{
-							//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, i + 1);
 							tmp = new NColVector(SEQ[countf].getObs(i + 1));
 							if (tmp == NULL)
 							{
@@ -876,7 +1090,7 @@ public:
 							}
 							emis_prob = 0.0;
 							for (int countk = 0; countk < M; countk++)
-								emis_prob += GAUSS_PROB_[k][countk] * GAUSS[k][countk]->getProb(*tmp);
+								emis_prob += GAUSS_PROB_[k][countk] * GAUSS[k][countk].getProb(*tmp);
 							delete tmp;
 							tmp = NULL;
 							if (emis_prob < EPSILON)emis_prob = EPSILON;
@@ -884,7 +1098,6 @@ public:
 						}
 					}
 					CHI.push_back(temp);
-					//cout << "Processing observation no. " << i << " ..." << endl;
 				}
 				for (int i = 0; i < N; i++)
 					for (int j = 0; j < N; j++)
@@ -911,7 +1124,7 @@ public:
 						{
 							temp1 = 0.0;
 							for (int j = 0; j < N; j++)temp1 += TRANS_.at<double>(j, i)*ALPHA->at<double>(j, t - 1);
-							temp1 *= GAUSS[i][m]->getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
+							temp1 *= GAUSS[i][m].getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
 							num_GAUSS_PROB[i][m] += GAUSS_PROB[i][m] * (temp1);
 						}
 						temp2 += GAUSS_PROB[i][m] * temp1;
@@ -932,10 +1145,10 @@ public:
 							temp = 0.0;
 							for (int j = 0; j < N; j++)
 								temp += TRANS_.at<double>(i, j)*ALPHA->at<double>(j, t - 1);
-							temp *= GAUSS[i][m]->getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
+							temp *= GAUSS[i][m].getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
 							num_GAUSS_MEAN[i][m] = num_GAUSS_MEAN[i][m] + ((SEQ[countf].getObs(t)))*temp;
 							NColVector v1 = (SEQ[countf].getObs(t));
-							v1 = v1 - *GAUSS_MEAN_[i][m];
+							v1 = v1 - GAUSS_MEAN_[i][m];
 							num_GAUSS_VAR[i][m] = num_GAUSS_VAR[i][m] + ((v1*(v1.transpose())))*temp;
 							if (temp < EPSILON)temp = EPSILON;
 							den_GAUSS_MEAN[i][m] += temp;
@@ -945,8 +1158,6 @@ public:
 				}
 				for (int i = 0; i < N; i++)
 				{
-
-					//for (int countj = 0; countj < 15; countj++)coeff[countj] = SEQ[countf]->getObs()->at<double>(countj, 0);
 					tmp = new NColVector(SEQ[countf].getObs(0));
 					if (tmp == NULL)
 					{
@@ -954,7 +1165,7 @@ public:
 						return;
 					}
 					emis_prob = 0.0;
-					for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk]->getProb(*tmp);
+					for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk].getProb(*tmp);
 					delete tmp;
 					tmp = NULL;
 					ALPHA->at<double>(i, 0) = INIT_.at<double>(0, i)*emis_prob;
@@ -976,7 +1187,7 @@ public:
 							return;
 						}
 						emis_prob = 0.0;
-						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk]->getProb(*tmp));
+						for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * (GAUSS[i][countk].getProb(*tmp));
 						delete tmp;
 						tmp = NULL;
 						ALPHA->at<double>(i, j) = emis_prob;
@@ -999,21 +1210,23 @@ public:
 				for (int j = 0; j < M; j++)
 				{
 				GAUSS_PROB_[i][j] = num_GAUSS_PROB[i][j] / den_GAUSS_PROB[i][j];
-				*GAUSS_MEAN_[i][j] = (1 / den_GAUSS_MEAN[i][j])*num_GAUSS_MEAN[i][j];
-				*GAUSS_VAR_[i][j] = (1 / den_GAUSS_VAR[i][j])*num_GAUSS_VAR[i][j];
+				GAUSS_MEAN_[i][j] = (1 / den_GAUSS_MEAN[i][j])*num_GAUSS_MEAN[i][j];
+				GAUSS_VAR_[i][j] = (1 / den_GAUSS_VAR[i][j])*num_GAUSS_VAR[i][j];
 				}
+			for (int countf = 0; countf < faces;countf++)
+				Prob[countf] = newProb[countf];
 			count++;
-		} while (probDiff.getNorm() > probLimit && count << maxCount);
+		} while (probDiff.getNorm()/(faces) > probLimit && count < maxCount);
 		*TRANS = TRANS_.clone();
 		*INIT = INIT_.clone();
 		for (int i = 0; i < states; i++)
 			for (int j = 0; j < mixtures; j++)
 			{
 			GAUSS_PROB[i][j] = GAUSS_PROB_[i][j];
-			*GAUSS_MEAN[i][j] = *GAUSS_MEAN_[i][j];
-			*GAUSS_VAR[i][j] = *GAUSS_VAR_[i][j];
-			GAUSS[i][j]->setMean(*GAUSS_MEAN[i][j]);
-			GAUSS[i][j]->setVar(*GAUSS_VAR[i][j]);
+			GAUSS_MEAN[i][j] = GAUSS_MEAN_[i][j];
+			GAUSS_VAR[i][j] = GAUSS_VAR_[i][j];
+			GAUSS[i][j].setMean(GAUSS_MEAN[i][j]);
+			GAUSS[i][j].setVar(GAUSS_VAR[i][j]);
 			}
 		print();
 	}
@@ -1045,10 +1258,6 @@ public:
 		for (int j = 0; j < r; j++)
 			for (int k = 0; k < c; k++)A.at<double>(j, k) = ((double)1) / c;
 	}
-	static double getMaxLikelihood(Obs &o, Mat &trans, Mat &init, NColVector* gauss_mean, Mat *gauss_var, double *gauss_prob)
-	{
-		return 0;
-	}
 
 };
 class Person
@@ -1076,18 +1285,17 @@ Person::Person(unsigned int nof)
 	id = ++num;
 	num_of_faces = nof;
 }
-
-
 double DCT[DCT_NUM1*DCT_NUM2][SW_SIZE][SW_SIZE];        //declaration of matrix of matrices of DCT coefficients
-
 bool Person::train()
 {
+	
+	
 	Obs *observation = new Obs[num_of_faces];
 	if (observation == NULL)
 	{
 		cout << "Null pointer returned during initialization of observation." << endl;
 		return false;
-	}
+	} 
 	for (int iter = 0; iter<num_of_faces; iter++)
 	{
 		//declare a filestream which reads images in folder with name same as id and path as specified
@@ -1134,25 +1342,19 @@ bool Person::train()
 						for (int y = 0, x = u; y < SW_SIZE; y++)
 							DCT[num][u][v] += (alpha*cos(PI *(2 * y + 1)*u / (2 * SW_SIZE))*(tmp[y][x]));
 						DCT[num][u][v] = DCT[num][u][v] / (SW_SIZE*SW_SIZE);
+						//cout << DCT[num][u][v];
 					}
 				}
 			}
 		}
-		for (int i = 0; i < DCT_NUM1*DCT_NUM2; i++)
-		{
-			for (int j = (5 * SW_SIZE) / 64; j < (14 * SW_SIZE) / 64; j++)
-			{
-				if (j < SW_SIZE)for (int k = 0; k <= j; k++)DCT[i][k][j - k] = 0;
-				else for (int k = SW_SIZE - 1; k >= (j - SW_SIZE + 1); k--)DCT[i][k][j - k] = 0;
-			}
-		}
 		//store observation sequence
-		observation[iter] = Obs(DCT, DCT_NUM1*DCT_NUM2);
+		observation[iter] = Obs(DCT,DCT_NUM1*DCT_NUM2);
+		//observation[iter].disp();
 	}
 
 	//train hmm
 	HMM model(observation, num_of_faces, DCT_NUM1*DCT_NUM2, 5, 1);
-	model.train(0.8, 20);
+	model.train(1E-40, 3);
 	//store hmm, file has header denoting training maximized likelihood
 	string outfilename = "";
 	outfilename += to_string(id) + ".hmm";
@@ -1165,6 +1367,7 @@ bool Person::train()
 int main(int argc, char **argv)
 {
 	int nof;
+	cout << DBL_MAX << endl;
 	cout << "Enter number of faces you want to take input from. Maximum is 10, but I dare you give more than 2: " << endl;
 	cin >> nof;
 	Person foo(nof);
