@@ -20,6 +20,64 @@ using namespace cv;
 #define DCT_NUM2 (int)((IMG_COL-SW_SIZE+APP_SIZE)/APP_SIZE)     //total number of DCT matrices the image will produce
 #define EPSILON 1E-200
 
+void Invert(double A[][15],int n)
+{
+        double U[15][15],L[15][15];
+        int i,j,k;
+        double sum = 0;
+        for (i = 0; i < n; i++) {
+                U[i][i] = 1;
+        }
+
+        for (j = 0; j < n; j++) {
+                for (i = j; i < n; i++) {
+                        sum = 0;
+                        for (k = 0; k < j; k++) {
+                                sum = sum + L[i][k] * U[k][j];
+                        }
+                        L[i][j] = A[i][j] - sum;
+                }
+
+                for (i = j; i < n; i++) {
+                        sum = 0;
+                        for(k = 0; k < j; k++) {
+                                sum = sum + L[j][k] * U[k][i];
+                        }
+                        if (L[j][j] == 0) {
+                               // cout << "det(L) close to 0!\n Can't divide by 0...\n";
+                                return;
+                        }
+                        U[j][i] = (A[j][i] - sum) / L[j][j];
+                }
+        }
+        double b[15][15] = {0},s = 0;
+        double d[15][15];
+        for(i = 0;i<n;i++)b[i][i] = 1;
+        for(j = 0;j<n;j++)
+        {
+                d[0][j] = b[0][j]/L[0][0];
+                for(i = 1;i<n;i++)
+                {
+			s = 0;
+                        for(k = 0;k<i;k++)
+                                s += L[i][k]*d[k][j];
+                        d[i][j] = (b[i][j]-s)/L[i][i];
+                }
+        }
+        for(j = 0;j<n;j++)
+        {
+                A[n-1][j] = d[n-1][j];
+                for(int i = n-2;i>=0;i--)
+                {
+                        s = 0;
+                        for(k = n-1;k>i;k--)
+                                s+= U[i][k]*A[k][j];
+                        A[i][j] = d[i][j] - s;
+                }
+        }
+}
+
+
 double Determinant(double A[][15], double L[][15], double U[][15], int n) {
         int i, j, k;
         double sum = 0;
@@ -43,8 +101,8 @@ double Determinant(double A[][15], double L[][15], double U[][15], int n) {
                                 sum = sum + L[j][k] * U[k][i];
                         }
                         if (L[j][j] == 0) {
-                                cout << "det(L) close to 0!\n Can't divide by 0...\n";
-                                return 0;
+                                //cout << "det(L) close to 0!\n Can't divide by 0...\n";
+				return 0;
                         }
                         U[j][i] = (A[j][i] - sum) / L[j][j];
                 }
@@ -569,21 +627,38 @@ public:
 	}
 	double getProb(NColVector x)
 	{
-		double dtmp[15][15],l[15][15],u[15][15];
+		double dtmp[15][15],l[15][15],u[15][15],idtmp[15][15];
 		for(int i = 0;i<var.rows;i++)
 		{
 			for(int j = 0;j<var.cols;j++)
+			{
 				dtmp[i][j] = 1000000000000.0*var.at<double>(i,j);
+				idtmp[i][j] = var.at<double>(i,j);
+			}
 		}
 		double det = Determinant(dtmp,l,u,15);
-		if (det < EPSILON)return 1;
-		Mat inv_covar(15, 15, CV_64F);
-		invert(var, inv_covar);
+		if (fabs(det) < EPSILON)
+			return 1;
+		Invert(idtmp,15);//cout << "Inverse fails" << endl;
+		Mat inv_covar(15,15,CV_64F);
+		for(int i = 0;i<var.rows;i++)
+		{
+			for(int j = 0;j<var.cols;j++)
+			{
+				inv_covar.at<double>(i,j) = idtmp[i][j];
+			}
+		}
+		//invert(var,inv_covar);
+
 		NRowVector mean_t = (x-mean).transpose();
 		NRowVector rhs = mean_t*inv_covar;
 		double num = exp(-(rhs*(x-mean)) / 2);
-		double den = sqrt(2 * pow(PI, var.rows)*abs(det));
-		double p = (num*1e90) / den;
+		double den = sqrt(2 * pow(PI, var.rows)*fabs(det));
+		double p = (num*1e10) / den;
+		if(p>1){
+			//cout << "Waah! Kyaa baat hai!" << endl;
+			return 1;
+		}
 		return  p;
 	}
 	Gaussian(const Gaussian &g)
@@ -776,6 +851,7 @@ public:
 	void setObs(Obs *O)
 	{
 		SEQ = O;
+		cout << "Declaring Gaussian matrices..." << endl;
 		faces = 1;
 	}
 	void setObs(Obs *o, int num_faces)
@@ -1061,7 +1137,7 @@ public:
 	}
 	void train(double probLimit, int maxCount)
 	{
-		print();
+		//print();
 		cout << "Beginning training..." << endl;
 		Mat** GAUSS_VAR_;
 		NColVector** GAUSS_MEAN_;
@@ -1070,7 +1146,6 @@ public:
 		GAUSS_MEAN_ = new NColVector*[states];
 		GAUSS_PROB_ = new double*[states];
 
-		cout << "Declaring Gaussian matrices..." << endl;
 		for (int i = 0; i < states; i++)
 		{
 			GAUSS_PROB_[i] = new double[mixtures];
@@ -1099,7 +1174,6 @@ public:
 		double *Prob, *newProb;
 		Prob = new double[faces];
 		newProb = new double[faces];
-		cout << "Declaring some other variables..." << endl;
 		for (int j = 0; j < faces; j++)
 		{
 			Prob[j] = 0;
@@ -1121,7 +1195,6 @@ public:
 		den_GAUSS_PROB = new double*[states];
 		den_GAUSS_MEAN = new double*[states];
 		den_GAUSS_VAR = new double*[states];
-		cout << "Setting up HMM properties..." << endl;
 		for (int i = 0; i < states; i++)
 		{
 			num_GAUSS_PROB[i] = new double[mixtures];
@@ -1139,7 +1212,6 @@ public:
 				den_GAUSS_MEAN[i][j] = 0;
 				den_GAUSS_VAR[i][j] = 0;
 			}
-			cout << "Initializing HMM Properties for state " << i << " ..." << endl;
 		}
 		do{
 			for (countf = 0; countf < faces; countf++)
@@ -1153,7 +1225,6 @@ public:
 					BETA = NULL;
 					GAMMA = NULL;
 				}
-				cout << "Processing face " << countf << " ..." << endl;
 				ALPHA = new Mat(N, T, CV_64F, Scalar(0));
 				BETA = new Mat(N, T, CV_64F, Scalar(0));
 				GAMMA = new Mat(N, T, CV_64F, Scalar(0));
@@ -1250,7 +1321,6 @@ public:
 					}
 					for(int i = 0;i<N;i++)BETA->at<double>(i,j) /= rf.at<double>(j,0);
 				}
-				cout << "Initializing GAMMA:" << endl;
 				for (int i = 0; i < N; i++)
 				{
 					for (int j = 0; j < T; j++)
@@ -1440,7 +1510,7 @@ public:
 			GAUSS[i][j].setVar(GAUSS_VAR[i][j]);
 			}
 
-		print();
+		//print();
 		} while (probDiff.getNorm()/(faces) > probLimit && count < maxCount);
 		*TRANS = TRANS_.clone();
 		*INIT = INIT_.clone();
@@ -1548,7 +1618,6 @@ bool Person::train(int &max_iter)
 		}
 		if (image.rows != IMG_ROW || image.cols != IMG_COL)     //check if image size matches with definition
 			cv::resize(image, image, cv::Size2d(IMG_ROW, IMG_COL));
-
 		//dct the file, create observation
 		double tmp[SW_SIZE][SW_SIZE];           //an array to store the partial DCT coefficients 
 		for (int i = 0; i < DCT_NUM1; i++)      //for loop to iterate over the DCT matrices, each of which is a part of a matrix itself of DCT_NUM1*DCT_NUM2 elements
@@ -1618,9 +1687,14 @@ int main(int argc, char **argv)
 	cout << "Maximum iterations? " << endl;
 	cin >> max_iter;
 	Person foo(nof);
-	foo.train(max_iter);
-	cout << foo.detect()<<endl;
-
+	Person foo2(nof);
+	Person foo3(nof);
+	//foo.train(max_iter);
+	//foo2.train(max_iter);
+	//foo3.train(max_iter);
+	cout << foo.detect() << endl;
+	cout << foo2.detect() << endl;
+	cout << foo3.detect() << endl;
 	//create a video stream
 
 	//for each frame, run over all hmm we have in the parent folder
