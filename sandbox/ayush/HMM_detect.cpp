@@ -19,6 +19,41 @@ using namespace cv;
 #define DCT_NUM1 (int)((IMG_ROW-SW_SIZE+APP_SIZE)/APP_SIZE)     //total number of DCT matrices the image will produce
 #define DCT_NUM2 (int)((IMG_COL-SW_SIZE+APP_SIZE)/APP_SIZE)     //total number of DCT matrices the image will produce
 #define EPSILON 1E-200
+
+double Determinant(double A[][15], double L[][15], double U[][15], int n) {
+        int i, j, k;
+        double sum = 0;
+        double det = 1;
+        for (i = 0; i < n; i++) {
+                U[i][i] = 1;
+        }
+
+        for (j = 0; j < n; j++) {
+                for (i = j; i < n; i++) {
+                        sum = 0;
+                        for (k = 0; k < j; k++) {
+                                sum = sum + L[i][k] * U[k][j];
+                        }
+                        L[i][j] = A[i][j] - sum;
+                }
+
+                for (i = j; i < n; i++) {
+                        sum = 0;
+                        for(k = 0; k < j; k++) {
+                                sum = sum + L[j][k] * U[k][i];
+                        }
+                        if (L[j][j] == 0) {
+                                cout << "det(L) close to 0!\n Can't divide by 0...\n";
+                                return 0;
+                        }
+                        U[j][i] = (A[j][i] - sum) / L[j][j];
+                }
+        }
+        for(int i = 0;i<n;i++)
+                det*=L[i][i];
+        return det;
+}
+
 double DCT[DCT_NUM1*DCT_NUM2][SW_SIZE][SW_SIZE];        //declaration of matrix of matrices of DCT coefficients
 class NRowVector
 {
@@ -534,15 +569,21 @@ public:
 	}
 	double getProb(NColVector x)
 	{
-		double det = determinant(var);
+		double dtmp[15][15],l[15][15],u[15][15];
+		for(int i = 0;i<var.rows;i++)
+		{
+			for(int j = 0;j<var.cols;j++)
+				dtmp[i][j] = 1000000000000.0*var.at<double>(i,j);
+		}
+		double det = Determinant(dtmp,l,u,15);
 		if (det < EPSILON)return 1;
 		Mat inv_covar(15, 15, CV_64F);
 		invert(var, inv_covar);
 		NRowVector mean_t = (x-mean).transpose();
 		NRowVector rhs = mean_t*inv_covar;
 		double num = exp(-(rhs*(x-mean)) / 2);
-		double den = sqrt(2 * pow(PI, var.rows)*abs(determinant(var)));
-		double p = num / den;
+		double den = sqrt(2 * pow(PI, var.rows)*abs(det));
+		double p = (num*1e90) / den;
 		return  p;
 	}
 	Gaussian(const Gaussian &g)
@@ -687,8 +728,17 @@ public:
 		SEQ = O;
 		faces = 1;
 		n_obs = DCT_NUM1*DCT_NUM2;
+		GAUSS = new Gaussian*[states];
+		for(int i = 0;i<states;i++)
+		{
+			GAUSS[i] = new Gaussian[mixtures];
+			for(int j = 0;j<mixtures;j++)
+			{
+				GAUSS[i][j] = Gaussian(GAUSS_MEAN[i][j],GAUSS_VAR[i][j]);
+			}
+		}
 		//observation[iter].disp();
-	
+		cout << getMaxLikelihood(O[0],*TRANS,*INIT,GAUSS,GAUSS_PROB,states,mixtures) << endl;	
 	}
 	HMM(Obs* O, int num_faces, int num_obs, int num_states, int num_mixtures)
 	{
@@ -950,7 +1000,7 @@ public:
 			tmp = new NColVector(SEQ[countf].getObs(0));
 			if (tmp == NULL)
 			{
-				cout << "Error in initializing col vector ..." << endl;
+				cout << "Error in initialuzing col vector ..." << endl;
 				return 0;
 			}
 			double emis_prob = 0;
@@ -1189,7 +1239,7 @@ public:
 								return;
 							}
 							emis_prob = 0.0;
-							for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[i][countk] * GAUSS[i][countk].getProb(*tmp);
+							for (int countk = 0; countk < M; countk++)emis_prob += GAUSS_PROB_[k][countk] * GAUSS[k][countk].getProb(*tmp);
 							delete tmp;
 							tmp = NULL;
 							if (emis_prob < EPSILON)emis_prob = EPSILON;
@@ -1219,10 +1269,12 @@ public:
 				}
 				Vector <Mat> CHI;
 				for (int i = 0; i < T - 1; i++)
-				{
+				{	
+					double tempo = 0;
 					Mat temp(N, N, CV_64F);
+					for(int k = 0;k<N;k++)tempo+= ALPHA->at<double>(k,i)*BETA->at<double>(k,i);
 					for (int j = 0; j < N; j++)
-					{
+					{	
 						for (int k = 0; k < N; k++)
 						{
 							tmp = new NColVector(SEQ[countf].getObs(i + 1));
@@ -1237,7 +1289,7 @@ public:
 							delete tmp;
 							tmp = NULL;
 							if (emis_prob < EPSILON)emis_prob = EPSILON;
-							temp.at<double>(j, k) = ALPHA->at<double>(j, i)*TRANS_.at<double>(j, k)*emis_prob*BETA->at<double>(k, i + 1) / (Prob[countf]);
+							temp.at<double>(j, k) = ALPHA->at<double>(j, i)*TRANS_.at<double>(j, k)*emis_prob*BETA->at<double>(k, i + 1) / (tempo);
 						}
 					}
 					CHI.push_back(temp);
@@ -1247,6 +1299,7 @@ public:
 					{
 					double tmp1, tmp2;
 					tmp1 = 0.0;
+						
 					tmp2 = 0.0;
 					for (int k = 0; k < T - 1; k++)
 					{
@@ -1262,20 +1315,18 @@ public:
 					double temp2 = 0.0;
 					for (int m = 0; m < M; m++)
 					{
-						double temp1;
+						double temp1,temp3;
+						temp3 = 0.0;
 						for (int t = 1; t < T; t++)
 						{
 							temp1 = 0.0;
 							for (int j = 0; j < N; j++)temp1 += TRANS_.at<double>(j, i)*ALPHA->at<double>(j, t - 1);
 							temp1 *= GAUSS[i][m].getProb((SEQ[countf].getObs(t)))*BETA->at<double>(i, t);
+							temp3 += temp1;
 							num_GAUSS_PROB[i][m] += GAUSS_PROB[i][m] * (temp1);
 						}
-						temp2 += GAUSS_PROB[i][m] * temp1;
-					}
-					for (int m = 0; m < M; m++)
-					{
+						temp2 += GAUSS_PROB[i][m] * temp3;
 						den_GAUSS_PROB[i][m] += temp2;
-						if (den_GAUSS_PROB[i][m] < EPSILON)den_GAUSS_PROB[i][m] = EPSILON;
 					}
 				}
 				for (int i = 0; i < N; i++)
@@ -1367,6 +1418,16 @@ public:
 			for (int countf = 0; countf < faces;countf++)
 				Prob[countf] = newProb[countf];
 			count++;
+
+		double normsum;
+		for(int i = 0;i<TRANS_.rows;i++)
+		{	
+			normsum = 0;
+			for(int j = 0;j<TRANS_.cols;j++)
+				normsum+=TRANS_.at<double>(i,j);
+			for(int j = 0;j<TRANS_.cols;j++)
+				TRANS_.at<double>(i,j)/=normsum;	//normalizin trans
+		}
 		*TRANS = TRANS_.clone();
 		*INIT = INIT_.clone();
 		for (int i = 0; i < states; i++)
