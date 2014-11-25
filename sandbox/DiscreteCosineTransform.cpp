@@ -1,7 +1,7 @@
-#include <opencv2\core\core.hpp>
-#include <opencv2\imgproc\imgproc.hpp>
-#include <opencv2\highgui\highgui.hpp>
-#include <opencv2\opencv.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
 #include <iostream>
 #include <cmath>
 #include <cstdio>
@@ -29,7 +29,7 @@ int main(char* argv[], int argc)
 		return -1;
 	}
 	cv::Mat image;	//input image matrix
-	image = cv::imread("1.jpg", CV_LOAD_IMAGE_GRAYSCALE);	//read input image
+	image = cv::imread("logo.png", CV_LOAD_IMAGE_GRAYSCALE);	//read input image
 	if (!image.data)
 	{
 		cout << "Could not open image." << endl; 

@@ -632,7 +632,7 @@ public:
 		{
 			for(int j = 0;j<var.cols;j++)
 			{
-				dtmp[i][j] = 1000000000000.0*var.at<double>(i,j);
+				dtmp[i][j] = 10000000000.0*var.at<double>(i,j);
 				idtmp[i][j] = var.at<double>(i,j);
 			}
 		}
@@ -653,11 +653,11 @@ public:
 		NRowVector mean_t = (x-mean).transpose();
 		NRowVector rhs = mean_t*inv_covar;
 		double num = exp(-(rhs*(x-mean)) / 2);
-		double den = sqrt(2 * pow(PI, var.rows)*fabs(det));
-		double p = (num*1e10) / den;
+		double den = sqrt(pow(2.0*PI, var.rows)*fabs(det));
+		double p = (num*1e75) / den;
 		if(p>1){
 			//cout << "Waah! Kyaa baat hai!" << endl;
-			return 1;
+			return num;
 		}
 		return  p;
 	}
@@ -1687,14 +1687,14 @@ int main(int argc, char **argv)
 	cout << "Maximum iterations? " << endl;
 	cin >> max_iter;
 	Person foo(nof);
-	Person foo2(nof);
-	Person foo3(nof);
-	//foo.train(max_iter);
+	//Person foo2(nof);
+	//Person foo3(nof);
+	foo.train(max_iter);
 	//foo2.train(max_iter);
 	//foo3.train(max_iter);
 	cout << foo.detect() << endl;
-	cout << foo2.detect() << endl;
-	cout << foo3.detect() << endl;
+	//cout << foo2.detect() << endl;
+	//cout << foo3.detect() << endl;
 	//create a video stream
 
 	//for each frame, run over all hmm we have in the parent folder
